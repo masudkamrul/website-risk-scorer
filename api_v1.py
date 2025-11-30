@@ -35,10 +35,10 @@ CSV_PATH = "data/fraudshield_dataset_v3.csv"
 app = FastAPI()
 model = load("fraudshield_model_v3.joblib")
 
-GOOGLE_SB_KEY = "AIzaSyC-zGvVOrahIkDEphxdc5_D_qdFuD_phJM"
+GOOGLE_SB_KEY = os.getenv("GOOGLE_SB_KEY", "")
 
 # WHOIS API Settings (apilayer)
-APILAYER_KEY = "5MV7C8KqcaZ5mNfnIH8TLgJkl1Ked3vb"
+APILAYER_KEY = os.getenv("APILAYER_KEY", "")
 WHOIS_API_URL = "https://api.apilayer.com/whois/query"
 
 # 📁 V3 dataset path (your existing "data" folder)
