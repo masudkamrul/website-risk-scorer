@@ -284,9 +284,17 @@ def get_score(request: ScoreRequest):
     mixed_content_ratio = float(features[21]) if len(features) > 21 else 0.0
     has_hsts_meta = int(features[22]) if len(features) > 22 else 0
     has_csp_meta = int(features[23]) if len(features) > 23 else 0
+# Ensure correct feature length (24 features)
+if len(model_features) < 24:
+    model_features += [0] * (24 - len(model_features))
+elif len(model_features) > 24:
+    model_features = model_features[:24]
+
+# Model predict
+prob = model.predict_proba([model_features])[0][1]
 
     # Model predict
-    model_features = features[:20]
+    model_features = features[:24]
     prob = model.predict_proba([model_features])[0][1]
     risk_score = float(prob * 100)
 
@@ -359,9 +367,17 @@ def scan_url(data: dict):
     features[18] = https_flag
     features[22] = has_hsts_header
     features[23] = has_csp_header
+# Ensure correct feature length (24 features)
+if len(model_features) < 24:
+    model_features += [0] * (24 - len(model_features))
+elif len(model_features) > 24:
+    model_features = model_features[:24]
+
+# Predict
+prob = model.predict_proba([model_features])[0][1]
 
     # Predict
-    model_features = features[:20]
+    model_features = features[:24]
     prob = model.predict_proba([model_features])[0][1]
     risk_score = float(prob * 100)
 
