@@ -33,7 +33,7 @@ CSV_PATH = "data/fraudshield_dataset_v3.csv"
 
 
 app = FastAPI()
-model = load("fraudshield_model_v2.joblib")
+model = load("fraudshield_model_v3.joblib")
 
 GOOGLE_SB_KEY = "AIzaSyC-zGvVOrahIkDEphxdc5_D_qdFuD_phJM"
 
