@@ -273,67 +273,31 @@ def get_score(request: ScoreRequest):
     if len(features) > 7:
         features[7] = sb_flag
 
-    # Server-side security
+    # Server-side signals
     security = get_security_headers(request.url)
     has_hsts_header = security["has_hsts_header"]
     has_csp_header = security["has_csp_header"]
     ssl_days_to_expiry = get_ssl_expiry_days(request.url)
 
-    # Frontend signals
-    uses_https = int(features[18]) if len(features) > 18 else 0
-    mixed_content_ratio = float(features[21]) if len(features) > 21 else 0.0
-    has_hsts_meta = int(features[22]) if len(features) > 22 else 0
-    has_csp_meta = int(features[23]) if len(features) > 23 else 0
-# Ensure correct feature length (24 features)
-if len(model_features) < 24:
-    model_features += [0] * (24 - len(model_features))
-elif len(model_features) > 24:
-    model_features = model_features[:24]
-
-# Model predict
-prob = model.predict_proba([model_features])[0][1]
-
-    # Model predict
+    # Force correct input length for model
     model_features = features[:24]
+    if len(model_features) < 24:
+        model_features += [0] * (24 - len(model_features))
+
+    # Predict
     prob = model.predict_proba([model_features])[0][1]
     risk_score = float(prob * 100)
 
-    # SB-A classification
     risk_class = map_risk_class(risk_score, sb_flag)
-    threat_category = map_threat_category(
-        risk_score, domain_age, ssl_days_to_expiry, sb_flag,
-        uses_https, mixed_content_ratio,
-        has_hsts_header, has_csp_header,
-        has_hsts_meta, has_csp_meta
-    )
-    auto_label = build_auto_label(risk_class, threat_category)
+    auto_label = build_auto_label(risk_class, "Automated Risk Analysis")
 
-    # Force high score for blacklist
     if risk_class == "Blacklisted Threat" and risk_score < 99:
         risk_score = 99.0
-
-    # Log
-    try:
-        if not domain_already_logged(request.url, CSV_PATH):
-            log_entry(
-                url=request.url,
-                features=features,
-                score=risk_score,
-                risk_class=risk_class,
-                threat_category=threat_category,
-                auto_label=auto_label,
-                csv_path=CSV_PATH,
-            )
-            print("📌 Logged dataset entry:", request.url)
-        else:
-            print("⏭️ Skipped duplicate domain:", request.url)
-    except Exception as e:
-        print("❌ Logging Error:", e)
 
     return {
         "risk_score": round(risk_score, 2),
         "risk_class": risk_class,
-        "threat_category": threat_category,
+        "threat_category": "Automated Risk Analysis",
         "auto_label": auto_label,
         "blacklist_flag": sb_flag,
         "domain_age_days": domain_age,
@@ -341,6 +305,7 @@ prob = model.predict_proba([model_features])[0][1]
         "has_csp_header": has_csp_header,
         "ssl_days_to_expiry": ssl_days_to_expiry,
     }
+
 
 
 # =============== /scan_url Endpoint (manual URL box) =============== #
@@ -349,73 +314,35 @@ prob = model.predict_proba([model_features])[0][1]
 def scan_url(data: dict):
     url = data["url"]
 
-    # Same signals as content.js + server features
+    # Signals
     domain_age = get_domain_age_days(url)
     sb_flag = check_safe_browsing(url)
-    security = get_security_headers(url)
-    has_hsts_header = security["has_hsts_header"]
-    has_csp_header = security["has_csp_header"]
-    ssl_days_to_expiry = get_ssl_expiry_days(url)
-
     parsed = urlparse(url)
-    https_flag = 1 if parsed.scheme == "https" else 0
+    uses_https = 1 if parsed.scheme == "https" else 0
 
-    # Build full feature vector
+    # Build feature vector (24)
     features = [0] * 24
     features[0] = domain_age
     features[7] = sb_flag
-    features[18] = https_flag
-    features[22] = has_hsts_header
-    features[23] = has_csp_header
-# Ensure correct feature length (24 features)
-if len(model_features) < 24:
-    model_features += [0] * (24 - len(model_features))
-elif len(model_features) > 24:
-    model_features = model_features[:24]
+    features[18] = uses_https
 
-# Predict
-prob = model.predict_proba([model_features])[0][1]
+    # Model input
+    model_features = features[:24]
 
     # Predict
-    model_features = features[:24]
     prob = model.predict_proba([model_features])[0][1]
     risk_score = float(prob * 100)
 
     risk_class = map_risk_class(risk_score, sb_flag)
-    threat_category = "Manual Scan Risk Analysis"
-    auto_label = build_auto_label(risk_class, threat_category)
+    auto_label = build_auto_label(risk_class, "Manual URL Scan")
 
-    # Same blacklist override
     if risk_class == "Blacklisted Threat" and risk_score < 99:
         risk_score = 99.0
-
-    # Log if new
-    try:
-        if not domain_already_logged(url, CSV_PATH):
-            log_entry(
-                url=url,
-                features=features,
-                score=risk_score,
-                risk_class=risk_class,
-                threat_category=threat_category,
-                auto_label=auto_label,
-                csv_path=CSV_PATH,
-            )
-            print("📌 Logged MANUAL:", url)
-        else:
-            print("⏭️ Skipped duplicate MANUAL domain:", url)
-    except Exception as e:
-        print("❌ Manual Logging Error:", e)
 
     return {
         "risk_score": round(risk_score, 2),
         "risk_class": risk_class,
-        "threat_category": threat_category,
         "auto_label": auto_label,
         "blacklist_flag": sb_flag,
-        "domain_age_days": domain_age,
-        "has_hsts_header": has_hsts_header,
-        "has_csp_header": has_csp_header,
-        "ssl_days_to_expiry": ssl_days_to_expiry,
+        "domain_age_days": domain_age
     }
-
