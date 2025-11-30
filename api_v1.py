@@ -33,7 +33,8 @@ CSV_PATH = "data/fraudshield_dataset_v3.csv"
 
 
 app = FastAPI()
-model = load("fraudshield_model_v3.joblib")
+model_data = load("fraudshield_model_v3.joblib")
+model = model_data["model"]
 
 GOOGLE_SB_KEY = os.getenv("GOOGLE_SB_KEY", "")
 
