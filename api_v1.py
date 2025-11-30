@@ -85,7 +85,7 @@ def get_domain_age_days(url: str) -> int:
     try:
         domain = tldextract.extract(url).registered_domain
         if not domain:
-            return 365
+            return 5000
 
         headers = {"apikey": APILAYER_KEY}
         res = requests.get(
@@ -98,7 +98,7 @@ def get_domain_age_days(url: str) -> int:
 
         created = data.get("result", {}).get("created")
         if not created:
-            return 365
+            return 5000  # Treat unknown as very old and SAFE
 
         created_date = datetime.strptime(created[:10], "%Y-%m-%d")
         age_days = (datetime.utcnow() - created_date).days
@@ -106,7 +106,7 @@ def get_domain_age_days(url: str) -> int:
 
     except Exception as e:
         print("[FraudShield][WHOIS] Error:", e)
-        return 365
+        return 5000
 
 
 def get_security_headers(url: str) -> dict:
