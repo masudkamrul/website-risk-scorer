@@ -40,10 +40,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow extension + future web UI
+    allow_origins=["chrome-extension://*"],  # Allow Chrome Extensions
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]  # <-- FIXES 'No Access-Control-Allow-Origin'
 )
 
 
