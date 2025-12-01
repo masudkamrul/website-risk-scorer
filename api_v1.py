@@ -9,7 +9,6 @@ import ssl
 import socket
 from urllib.parse import urlparse
 import os
-
 import pandas as pd
 
 def domain_already_logged(url: str, csv_path: str) -> bool:
@@ -19,49 +18,41 @@ def domain_already_logged(url: str, csv_path: str) -> bool:
             return False
         
         df = pd.read_csv(csv_path)
-        
-        # Extract domain from existing URLs
         existing_domains = df['url'].apply(lambda u: tldextract.extract(u).registered_domain)
         return domain in existing_domains.values
-
     except Exception as e:
         print("Check logged error:", e)
         return False
 
-
 CSV_PATH = "data/fraudshield_dataset_v3.csv"
 
-
 app = FastAPI()
-model_data = load("fraudshield_model_v2.joblib")
 
+# 🔥 Load V2 stable model first — before CORS / middleware
+model = load("fraudshield_model_v2.joblib")
 
 from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["chrome-extension://*"],  # Allow Chrome Extensions
+    allow_origins=["chrome-extension://*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]  # <-- FIXES 'No Access-Control-Allow-Origin'
+    expose_headers=["*"]
 )
 
-
 GOOGLE_SB_KEY = os.getenv("GOOGLE_SB_KEY", "")
-
-# WHOIS API Settings (apilayer)
 APILAYER_KEY = os.getenv("APILAYER_KEY", "")
 WHOIS_API_URL = "https://api.apilayer.com/whois/query"
 
-# 📁 V3 dataset path (your existing "data" folder)
 CSV_PATH = os.path.join("data", "fraudshield_dataset_v3.csv")
 os.makedirs("data", exist_ok=True)
-
 
 class ScoreRequest(BaseModel):
     features: list
     url: str
+
 
 
 # =============== External Signals =============== #
