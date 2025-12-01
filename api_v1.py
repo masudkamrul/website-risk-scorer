@@ -11,7 +11,15 @@ from urllib.parse import urlparse
 import os
 
 import pandas as pd
+from fastapi.middleware.cors import CORSMiddleware
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all (safe for public scanning)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 def domain_already_logged(url: str, csv_path: str) -> bool:
     try:
         domain = tldextract.extract(url).registered_domain
