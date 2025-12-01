@@ -11,15 +11,7 @@ from urllib.parse import urlparse
 import os
 
 import pandas as pd
-from fastapi.middleware.cors import CORSMiddleware
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allow all (safe for public scanning)
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 def domain_already_logged(url: str, csv_path: str) -> bool:
     try:
         domain = tldextract.extract(url).registered_domain
@@ -43,6 +35,17 @@ CSV_PATH = "data/fraudshield_dataset_v3.csv"
 app = FastAPI()
 model_data = load("fraudshield_model_v3.joblib")
 model = model_data["model"]
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow extension + future web UI
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 GOOGLE_SB_KEY = os.getenv("GOOGLE_SB_KEY", "")
 
