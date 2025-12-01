@@ -33,8 +33,8 @@ CSV_PATH = "data/fraudshield_dataset_v3.csv"
 
 
 app = FastAPI()
-model_data = load("fraudshield_model_v3.joblib")
-model = model_data["model"]
+model_data = load("fraudshield_model_v2.joblib")
+
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -268,92 +268,73 @@ def build_auto_label(risk_class: str, threat_category: str) -> str:
     return f"{risk_class} — {threat_category}"
 
 
-# =============== /score Endpoint =============== #
+# =============== /score Endpoint (extension scan) =============== #
 
 @app.post("/score")
 def get_score(request: ScoreRequest):
     features = request.features.copy()
 
-    # WHOIS update
+    # WHOIS domain age update
     domain_age = get_domain_age_days(request.url)
     if len(features) > 0:
         features[0] = domain_age
 
-    # Safe Browsing override
+    # Safe Browsing check
     sb_flag = check_safe_browsing(request.url)
     if len(features) > 7:
         features[7] = sb_flag
 
-    # Server-side signals
-    security = get_security_headers(request.url)
-    has_hsts_header = security["has_hsts_header"]
-    has_csp_header = security["has_csp_header"]
-    ssl_days_to_expiry = get_ssl_expiry_days(request.url)
+    # Ensure correct feature count (20 for V2)
+    model_features = features[:20]
+    if len(model_features) < 20:
+        model_features += [0] * (20 - len(model_features))
 
-    # Force correct input length for model
-    model_features = features[:24]
-    if len(model_features) < 24:
-        model_features += [0] * (24 - len(model_features))
-
-    # Predict
     prob = model.predict_proba([model_features])[0][1]
-    risk_score = float(prob * 100)
+    risk_score = round(float(prob * 100), 2)
 
-    risk_class = map_risk_class(risk_score, sb_flag)
-    auto_label = build_auto_label(risk_class, "Automated Risk Analysis")
-
-    if risk_class == "Blacklisted Threat" and risk_score < 99:
+    # Apply Safe Browsing override
+    if sb_flag == 1:
         risk_score = 99.0
+        risk_class = "Blacklisted Threat"
+        threat_category = "Phishing/Malware Source"
+    else:
+        risk_class = "Safe" if risk_score < 10 else "Suspicious" if risk_score < 40 else "High Risk"
+        threat_category = "Automated V2 Analysis"
 
     return {
-        "risk_score": round(risk_score, 2),
+        "risk_score": risk_score,
         "risk_class": risk_class,
-        "threat_category": "Automated Risk Analysis",
-        "auto_label": auto_label,
+        "threat_category": threat_category,
         "blacklist_flag": sb_flag,
         "domain_age_days": domain_age,
-        "has_hsts_header": has_hsts_header,
-        "has_csp_header": has_csp_header,
-        "ssl_days_to_expiry": ssl_days_to_expiry,
     }
 
 
-
-# =============== /scan_url Endpoint (manual URL box) =============== #
+# =============== /scan_url Endpoint (popup manual scan) =============== #
 
 @app.post("/scan_url")
 def scan_url(data: dict):
     url = data["url"]
-
-    # Signals
     domain_age = get_domain_age_days(url)
     sb_flag = check_safe_browsing(url)
-    parsed = urlparse(url)
-    uses_https = 1 if parsed.scheme == "https" else 0
 
-    # Build feature vector (24)
-    features = [0] * 24
-    features[0] = domain_age
-    features[7] = sb_flag
-    features[18] = uses_https
+    features = [domain_age] + [0] * 19  # 20 total features (V2)
 
-    # Model input
-    model_features = features[:24]
+    prob = model.predict_proba([features])[0][1]
+    risk_score = round(float(prob * 100), 2)
 
-    # Predict
-    prob = model.predict_proba([model_features])[0][1]
-    risk_score = float(prob * 100)
-
-    risk_class = map_risk_class(risk_score, sb_flag)
-    auto_label = build_auto_label(risk_class, "Manual URL Scan")
-
-    if risk_class == "Blacklisted Threat" and risk_score < 99:
+    if sb_flag == 1:
         risk_score = 99.0
+        risk_class = "Blacklisted Threat"
+        threat_category = "Phishing/Malware Source"
+    else:
+        risk_class = "Safe" if risk_score < 10 else "Suspicious" if risk_score < 40 else "High Risk"
+        threat_category = "Manual Scan V2"
 
     return {
-        "risk_score": round(risk_score, 2),
+        "risk_score": risk_score,
         "risk_class": risk_class,
-        "auto_label": auto_label,
+        "threat_category": threat_category,
         "blacklist_flag": sb_flag,
-        "domain_age_days": domain_age
+        "domain_age_days": domain_age,
     }
