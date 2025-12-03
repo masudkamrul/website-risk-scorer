@@ -1,0 +1,53 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+from joblib import dump
+
+DATA_PATH = "data/fraudshield_dataset_v6.csv"
+MODEL_PATH = "fraudshield_model_v6.joblib"
+
+print("📌 Loading dataset...")
+df = pd.read_csv(DATA_PATH)
+
+# Map existing label column
+df["label"] = df["verified_label"].apply(
+    lambda x: 0 if str(x).lower().strip() == "safe" else 1
+)
+
+# Select only 5 safe features + balanced training needed
+X = df[["f0", "f18", "f21", "f22", "f23"]].fillna(0)
+y = df["label"].astype(int)
+
+print("\n📊 Label distribution (0=Safe, 1=Fraud):")
+print(y.value_counts())
+
+print(f"\n📌 Feature matrix shape: {X.shape}")
+
+# Stratified split ensures both classes represented equally in test set
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y
+)
+
+print("\n🤖 Training RandomForest Model V6...")
+model = RandomForestClassifier(
+    n_estimators=400,
+    max_depth=16,
+    min_samples_leaf=2,
+    class_weight="balanced_subsample",
+    random_state=42
+)
+model.fit(X_train, y_train)
+
+y_pred = model.predict(X_test)
+
+print("\n📊 Classification Report:")
+print(classification_report(y_test, y_pred))
+
+print("\n🔍 Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+print(f"\n💾 Saving model → {MODEL_PATH}")
+dump({"model": model}, MODEL_PATH)
+
+print("\n🎯 Model V6 training completed successfully!")
