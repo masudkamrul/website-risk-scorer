@@ -28,7 +28,7 @@ CSV_PATH = "data/fraudshield_dataset_v3.csv"
 
 app = FastAPI()
 
-# 🔥 Load V2 stable model first — before CORS / middleware
+# 🔥 Load V7 stable model first — before CORS / middleware
 model_data = load("fraudshield_model_v7.joblib")
 model = model_data["model"]
 
